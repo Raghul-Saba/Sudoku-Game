@@ -8,11 +8,12 @@ class SudokuApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Sudoku Game")
-        self.geometry("500x600")
+        self.geometry("620x760")
         self.resizable(False, False)
         self.start_time = None
         self.timer_label = None
         self.grid_entries = []
+        self.board_canvas = None
         self.original_puzzle = None
         self._create_start_screen()
 
@@ -31,71 +32,100 @@ class SudokuApp(tk.Tk):
 
     def _create_game_screen(self):
         """Game screen with grid and timer"""
-        # Timer setup
-        self.timer_label = tk.Label(self, text="Time: 00:00", font=("Arial", 14), fg="blue")
-        self.timer_label.pack(pady=5)
+        self.configure(bg="#f3f7ff")
+
+        header = tk.Frame(self, bg="#f3f7ff")
+        header.pack(fill="x", pady=(16, 6))
+
+        self.timer_label = tk.Label(
+            header,
+            text="Time: 00:00",
+            font=("Arial", 14, "bold"),
+            fg="#1f4fa3",
+            bg="#f3f7ff",
+        )
+        self.timer_label.pack()
         self.start_time = time.time()
         self._update_timer()
 
-        # Sudoku grid with colored visual separation
-        self.grid_frame = tk.Frame(self, bg="black")  # Black background for grid lines
-        self.grid_frame.pack(pady=10)
-        
+        board_wrapper = tk.Frame(self, bg="#f3f7ff")
+        board_wrapper.pack(pady=12)
+
         puzzle = generate_sudoku()
-        self.original_puzzle = [row[:] for row in puzzle]  # Keep a copy of original
+        self.original_puzzle = [row[:] for row in puzzle]
 
         self.grid_entries = []
+        self.board_canvas = tk.Canvas(
+            board_wrapper,
+            width=540,
+            height=540,
+            bg="white",
+            highlightthickness=0,
+            bd=0,
+        )
+        self.board_canvas.pack()
+
+        self._draw_board_grid()
+
+        cell_size = 60
         for i in range(9):
             row_entries = []
             for j in range(9):
                 value = puzzle[i][j]
-                
-                # Create frame for each cell with colored borders
-                cell_frame = tk.Frame(self.grid_frame, bg="green", relief="flat", bd=1)
-                cell_frame.grid(row=i, column=j, padx=0, pady=0, sticky="nsew")
-                
-                # Add thicker green borders for 3x3 box separation
-                if i % 3 == 0 and i > 0:  # Top border of 3x3 box
-                    cell_frame.config(bd=3, bg="darkgreen")
-                elif i % 3 == 2:  # Bottom border of 3x3 box  
-                    cell_frame.config(bd=3, bg="darkgreen")
-                elif j % 3 == 0 and j > 0:  # Left border of 3x3 box
-                    cell_frame.config(bd=3, bg="darkgreen")
-                elif j % 3 == 2:  # Right border of 3x3 box
-                    cell_frame.config(bd=3, bg="darkgreen")
-                
-                # Create entry widget inside the cell frame
-                entry = tk.Entry(cell_frame, width=2, font=("Arial", 18), justify="center", 
-                               relief="flat", bd=0, bg="white")
-                entry.pack(fill="both", expand=True, padx=1, pady=1)
+
+                entry = tk.Entry(
+                    self.board_canvas,
+                    width=2,
+                    font=("Arial", 22),
+                    justify="center",
+                    relief="flat",
+                    bd=0,
+                    bg="white",
+                    fg="#163d8f",
+                    insertbackground="#163d8f",
+                )
+                x = j * cell_size + cell_size // 2
+                y = i * cell_size + cell_size // 2
+                self.board_canvas.create_window(x, y, window=entry, width=38, height=38)
                 
                 if value != 0:
                     entry.insert(0, str(value))
-                    entry.config(state="disabled", disabledforeground="black", bg="lightgray")
+                    entry.config(state="disabled", disabledforeground="#000000", bg="#eef3ff")
                 else:
-                    # Bind validation for empty cells
                     entry.bind('<KeyRelease>', lambda e, row=i, col=j: self._validate_input(e, row, col))
                     entry.bind('<FocusOut>', lambda e, row=i, col=j: self._validate_input(e, row, col))
                 
                 row_entries.append(entry)
             self.grid_entries.append(row_entries)
-        
-        # Configure grid weights for better spacing
-        for i in range(9):
-            self.grid_frame.grid_rowconfigure(i, weight=1)
-        for j in range(9):
-            self.grid_frame.grid_columnconfigure(j, weight=1)
 
-        # Control buttons
-        button_frame = tk.Frame(self)
-        button_frame.pack(pady=10)
+        button_frame = tk.Frame(self, bg="#f3f7ff")
+        button_frame.pack(pady=14)
         
-        tk.Button(button_frame, text="New Game", command=self._reset_game, 
-                 bg="lightgreen", padx=10).pack(side=tk.LEFT, padx=5)
-        tk.Button(button_frame, text="Check Solution", command=self._check_solution, 
-                 bg="orange", padx=10).pack(side=tk.LEFT, padx=5)
-        tk.Button(button_frame, text="Solve", command=self._solve_puzzle, 
-                 bg="yellow", padx=10).pack(side=tk.LEFT, padx=5)
+        button_style = {"font": ("Arial", 11, "bold"), "padx": 12, "pady": 6, "bd": 0}
+        tk.Button(button_frame, text="New Game", command=self._reset_game, bg="#d7edff", fg="#123b7a", **button_style).pack(side=tk.LEFT, padx=6)
+        tk.Button(button_frame, text="Check Solution", command=self._check_solution, bg="#1f4fa3", fg="white", **button_style).pack(side=tk.LEFT, padx=6)
+        tk.Button(button_frame, text="Solve", command=self._solve_puzzle, bg="#d7edff", fg="#123b7a", **button_style).pack(side=tk.LEFT, padx=6)
+
+    def _draw_board_grid(self):
+        """Draw the Sudoku grid to match the board styling."""
+        if self.board_canvas is None:
+            return
+
+        self.board_canvas.delete("grid")
+
+        size = 540
+        cell_size = size // 9
+        thin_color = "#2f63b7"
+        thick_color = "#194a9e"
+
+        self.board_canvas.create_rectangle(0, 0, size, size, outline=thick_color, width=4, tags="grid")
+
+        for index in range(1, 9):
+            x = index * cell_size
+            line_width = 4 if index % 3 == 0 else 1
+            line_color = thick_color if index % 3 == 0 else thin_color
+            self.board_canvas.create_line(x, 0, x, size, fill=line_color, width=line_width, tags="grid")
+            self.board_canvas.create_line(0, x, size, x, fill=line_color, width=line_width, tags="grid")
 
     def _validate_input(self, event, row, col):
         """Validate user input"""
